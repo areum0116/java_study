@@ -383,4 +383,154 @@ ThreadB: methodB 작업 실행
 
 ---------
 
+### 14.7 스레드 안전 종료
 
+#### 조건 이용
+
+*PrintThread.java*
+```java
+package ch14.sec07.exam01;
+
+public class PrintThread extends Thread {
+	private boolean stop;
+
+	public void setStop(boolean stop) {
+		this.stop = stop;
+	}
+
+	@Override
+	public void run() {
+		while(!stop) {		// stop 필드값에 따라 반복 여부 결정
+			System.out.println("실행 중");
+		}
+		System.out.println("리소스 정리");
+		System.out.println("실행 종료");
+	}
+}
+```
+
+*SafeStopExample.java*
+```java
+package ch14.sec07.exam01;
+
+public class SafeStopExample {
+	public static void main(String[] args) {
+		PrintThread printThread = new PrintThread();
+		printThread.start();
+
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e) {
+		}
+
+		printThread.setStop(true);
+		// printThread 종료 위해 stop 필드값 변경
+	}
+}
+```
+
+#### interrupt() 메소드 이용
+
+스레드가 일시 정지 상태에 있을 때 InterruptedException 예외를 발생시키는 역할을 한다. 스레드가 실행 대기/실행 상태일 때에는 `interrupt()` 메소드가 호출되어도 예외는 발생하지 않는다.
+
+*PrintThread.java*
+```java
+package ch14.sec07.exam02;
+
+public class PrintThread extends Thread {
+	public void run() {
+		try {
+			while(true) {
+				System.out.println("실행 중");
+				Thread.sleep(1);		// 일시 정지 만듦 (InterruptedException 발생할 수 있도록)
+			}
+		} catch(InterruptedException e) {
+		}
+		System.out.println("리소스 정리");
+		System.out.println("실행 종료");
+	}
+}
+```
+
+*InterruptExample.java*
+```java
+package ch14.sec07.exam02;
+
+public class InterruptExample {
+	public static void main(String[] args) {
+		Thread thread = new PrintThread();
+		thread.start();
+
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+		}
+
+		thread.interrupt();
+	}
+}
+```
+
+일시 정지를 만들지 않고도 Thread의 `interrupted()`와 `isInterrupted()` 메소드로 `interrupt()` 메소드 호출 여부를 확인할 수 있다.
+
+---------
+
+### 14.8 데몬 스레드
+
+데몬(daemon) 스레드는 주 스레드의 작업을 돕는 보조적인 역할을 수행하는 스레드다. 주 스레드가 종료되면 데몬 스레드도 따라서 자동으로 종료된다. 스레드를 데몬으로 만들기 위해서는 주 스레드가 데몬이 될 스레드의 `setDaemon(true)`를 호출하면 된다.
+
+*AutoSaveThread.java*
+```java
+package ch14.sec08;
+
+public class AutoSaveThread extends Thread {
+	public void save() {
+		System.out.println("작업 내용을 저장함.");
+	}
+
+	@Override
+	public void run() {
+		while(true) {
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				break;
+			}
+			save();
+		}
+	}
+}
+```
+
+*DaemonExample.java*
+```java
+package ch14.sec08;
+
+public class DaemonExample {
+	public static void main(String[] args) {
+		AutoSaveThread autoSaveThread = new AutoSaveThread();
+		autoSaveThread.setDaemon(true); // AutoSaveThread를 데몬 스레드로 만듦
+		autoSaveThread.start();
+
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e) {
+		}
+
+		System.out.println("메인 스레드 종료");
+	}
+}
+```
+
+*결과*
+```
+작업 내용을 저장함.
+작업 내용을 저장함.
+메인 스레드 종료
+```
+
+------
+
+### 14.9 스레드 풀
+
+스레드 풀(ThreadPool)은 작업 처리에 사용되는 스레드를 제한된 개수만큼 정해 놓고 작업 큐에 들어오는 작업들을 스레드가 하나씩 맡아 처리하는 방식이다. 작업 처리가 끝난 스레드는 다시 작업 큐에서 새로운 작업을 가져와 처리한다. 이렇게 하면 작업량이 증가해도 스레드의 개수가 늘어나지 않아 애플리케이션의 성능이 급격히 저하되지 않는다.
